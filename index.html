@@ -348,7 +348,7 @@
   <div id="screen-start" class="overlay-panel">
     <h1>本格フィッシング EX</h1>
     <p>クリック/タップ長押しで<b>リールを巻く</b>！<br><br>
-    <b>マウスを左右に動かすだけ</b>（または←/→キー）で魚影が泳ぐ方向に竿を倒そう！</p>
+    <b>スマホを左右に傾ける</b>（または画面ドラッグ/←→キー）で、魚影が泳ぐ方向に竿を倒そう！</p>
     <button class="btn" id="btn-start">キャスト（釣りをはじめる）</button>
   </div>
 
@@ -506,6 +506,7 @@ let fishSwimAngle = 0;
 
 // 操作フラグ
 let isReeling = false;
+let gyroEnabled = false;
 
 // パーティクル & アニメーション
 let particles = [];
@@ -531,6 +532,7 @@ window.onload = () => {
 
   document.getElementById('btn-start').addEventListener('click', () => {
     snd.init();
+    requestGyroPermission();
     startScreen.classList.add('hidden');
     startFishing();
   });
@@ -542,6 +544,42 @@ window.onload = () => {
 
   requestAnimationFrame(gameLoop);
 };
+
+// スマホの傾き（ジャイロセンサー）許可要求とイベントハンドラ
+function requestGyroPermission() {
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS 13+ 用のパーミッション要求
+    DeviceOrientationEvent.requestPermission()
+      .then(response => {
+        if (response === 'granted') {
+          window.addEventListener('deviceorientation', handleOrientation, true);
+          gyroEnabled = true;
+        }
+      })
+      .catch(console.error);
+  } else if ('DeviceOrientationEvent' in window) {
+    // Android や標準ブラウザ用
+    window.addEventListener('deviceorientation', handleOrientation, true);
+    gyroEnabled = true;
+  }
+}
+
+function handleOrientation(e) {
+  // 左右の傾き角度（gamma: -90 〜 90 度）
+  const gamma = e.gamma;
+  if (gamma === null || gamma === undefined) return;
+
+  // 10度以上傾けた場合に竿をその方向に倒す
+  if (gamma < -10) {
+    rodDir = 'left';
+  } else if (gamma > 10) {
+    rodDir = 'right';
+  } else {
+    // ほぼ水平（-10〜10度）の場合はニュートラル
+    rodDir = 'none';
+  }
+  updateLRUI();
+}
 
 function resizeCanvas() {
   const container = document.getElementById('game-container');
